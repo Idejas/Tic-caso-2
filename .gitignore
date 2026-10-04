@@ -1,0 +1,4 @@
+referencias/
+*.class
+~$*
+.DS_Store

@@ -1,106 +1,93 @@
 import java.io.BufferedWriter;
-import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
-/**
- * Actividad 1 - Caso 2 (ISIS 2203).
- * Genera las referencias (dvs) del algoritmo Hill Modificado sobre m[NF][NC]
- * (row-major) seguida en memoria por el vector clave v[TV].
- *
- * Uso: java GeneradorReferencias NF NC TV TP numPasadas archivoSalida
- * Sin argumentos, los parametros se piden por consola.
- */
+// Caso 2 - Actividad 1
+// Genera el archivo con las direcciones virtuales que produce el metodo cifrar()
+// La matriz esta guardada por filas desde la direccion 0 y el vector va justo despues
 public class GeneradorReferencias {
 
-    /** Fin de linea estilo Windows, igual que el archivo de ejemplo. */
-    private static final String FIN = "\r\n";
-
-    private final int nf, nc, tv, tp, numPasadas;
-
-    public GeneradorReferencias(int nf, int nc, int tv, int tp, int numPasadas) {
-        this.nf = nf; this.nc = nc; this.tv = tv; this.tp = tp; this.numPasadas = numPasadas;
-    }
-
-    /** m empieza en la direccion 0 y se guarda por filas. */
-    private int dirMatriz(int i, int j) { return i * nc + j; }
-
-    /** v va justo despues de la matriz. */
-    private int dirVector(int k) { return nf * nc + k; }
-
-    public int numPaginas() { return (nf * nc + tv + tp - 1) / tp; }
-
-    /** 3 referencias por elemento, 2 recorridos por pasada. */
-    public long numReferencias() { return 3L * nf * nc * 2 * numPasadas; }
-
-    private void escribir(BufferedWriter out, String etiqueta, int dv) throws IOException {
-        out.write(etiqueta + "," + (dv / tp) + "," + (dv % tp));
-        out.write(FIN);
-    }
-
-    /** m[i][j] = m[i][j] op v[k] -> lee m, lee v, escribe m. */
-    private void operacion(BufferedWriter out, int i, int j, int k) throws IOException {
-        String m = "[mat1-" + i + "-" + j + "]";
-        escribir(out, m, dirMatriz(i, j));
-        escribir(out, "[v-0-" + k + "]", dirVector(k));
-        escribir(out, m, dirMatriz(i, j));
-    }
-
-    public void generar(String archivo) throws IOException {
-        try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(
-                new FileOutputStream(archivo), StandardCharsets.UTF_8), 1 << 16)) {
-            out.write("TP=" + tp); out.write(FIN);
-            out.write("NF=" + nf); out.write(FIN);
-            out.write("NC=" + nc); out.write(FIN);
-            out.write("Tamaño vector clave=" + tv); out.write(FIN);
-            out.write("numPasadas=" + numPasadas); out.write(FIN);
-            out.write("NR=" + numReferencias()); out.write(FIN);
-            out.write("NP=" + numPaginas()); out.write(FIN);
-
-            for (int pasada = 0; pasada < numPasadas; pasada++) {
-                // Recorrido por filas: suma con v[j % TV]
-                for (int i = 0; i < nf; i++)
-                    for (int j = 0; j < nc; j++)
-                        operacion(out, i, j, j % tv);
-                // Recorrido por columnas: XOR con v[i % TV]
-                for (int j = 0; j < nc; j++)
-                    for (int i = 0; i < nf; i++)
-                        operacion(out, i, j, i % tv);
-            }
-        }
-    }
-
-    private static int leerEntero(Scanner sc, String msg) {
-        System.out.print(msg);
-        return Integer.parseInt(sc.nextLine().trim());
-    }
+    static int filas, columnas, tamVector, tamPagina, pasadas;
+    static BufferedWriter bw;
 
     public static void main(String[] args) throws IOException {
-        int nf, nc, tv, tp, pasadas;
-        String archivo;
+        String nombreArchivo;
+
         if (args.length == 6) {
-            nf = Integer.parseInt(args[0]); nc = Integer.parseInt(args[1]);
-            tv = Integer.parseInt(args[2]); tp = Integer.parseInt(args[3]);
-            pasadas = Integer.parseInt(args[4]); archivo = args[5];
+            filas = Integer.parseInt(args[0]);
+            columnas = Integer.parseInt(args[1]);
+            tamVector = Integer.parseInt(args[2]);
+            tamPagina = Integer.parseInt(args[3]);
+            pasadas = Integer.parseInt(args[4]);
+            nombreArchivo = args[5];
         } else {
             Scanner sc = new Scanner(System.in);
-            nf = leerEntero(sc, "Numero de filas (NF): ");
-            nc = leerEntero(sc, "Numero de columnas (NC): ");
-            tv = leerEntero(sc, "Tamano del vector clave: ");
-            tp = leerEntero(sc, "Tamano de pagina (bytes): ");
-            pasadas = leerEntero(sc, "Numero de pasadas: ");
-            System.out.print("Archivo de salida: ");
-            archivo = sc.nextLine().trim();
+            System.out.print("Filas de la matriz: ");
+            filas = sc.nextInt();
+            System.out.print("Columnas de la matriz: ");
+            columnas = sc.nextInt();
+            System.out.print("Tamanio del vector: ");
+            tamVector = sc.nextInt();
+            System.out.print("Tamanio de pagina: ");
+            tamPagina = sc.nextInt();
+            System.out.print("Numero de pasadas: ");
+            pasadas = sc.nextInt();
+            System.out.print("Nombre del archivo de salida: ");
+            nombreArchivo = sc.next();
+            sc.close();
         }
-        if (nf <= 0 || nc <= 0 || tv <= 0 || tp <= 0 || pasadas < 0) {
-            System.err.println("Parametros invalidos.");
-            System.exit(1);
+
+        // 3 referencias por cada elemento (leer m, leer v, escribir m) y 2 recorridos por pasada
+        long numReferencias = (long) filas * columnas * 3 * 2 * pasadas;
+        int totalBytes = filas * columnas + tamVector;
+        int numPaginas = totalBytes / tamPagina;
+        if (totalBytes % tamPagina != 0) {
+            numPaginas++;
         }
-        GeneradorReferencias gen = new GeneradorReferencias(nf, nc, tv, tp, pasadas);
-        gen.generar(archivo);
-        System.out.println("Generado " + archivo + " (NR=" + gen.numReferencias()
-                + ", NP=" + gen.numPaginas() + ")");
+
+        bw = new BufferedWriter(new FileWriter(nombreArchivo, StandardCharsets.UTF_8));
+        escribirLinea("TP=" + tamPagina);
+        escribirLinea("NF=" + filas);
+        escribirLinea("NC=" + columnas);
+        escribirLinea("Tamaño vector clave=" + tamVector);
+        escribirLinea("numPasadas=" + pasadas);
+        escribirLinea("NR=" + numReferencias);
+        escribirLinea("NP=" + numPaginas);
+
+        for (int p = 0; p < pasadas; p++) {
+            // recorrido por filas (suma)
+            for (int i = 0; i < filas; i++) {
+                for (int j = 0; j < columnas; j++) {
+                    referencias(i, j, j % tamVector);
+                }
+            }
+            // recorrido por columnas (xor)
+            for (int j = 0; j < columnas; j++) {
+                for (int i = 0; i < filas; i++) {
+                    referencias(i, j, i % tamVector);
+                }
+            }
+        }
+        bw.close();
+
+        System.out.println("Listo, se genero " + nombreArchivo);
+        System.out.println("NR = " + numReferencias + "  NP = " + numPaginas);
+    }
+
+    // m[i][j] = m[i][j] op v[k]  ->  lee m[i][j], lee v[k], escribe m[i][j]
+    static void referencias(int i, int j, int k) throws IOException {
+        int dirM = i * columnas + j;
+        int dirV = filas * columnas + k;
+        String m = "[mat1-" + i + "-" + j + "]," + dirM / tamPagina + "," + dirM % tamPagina;
+        escribirLinea(m);
+        escribirLinea("[v-0-" + k + "]," + dirV / tamPagina + "," + dirV % tamPagina);
+        escribirLinea(m);
+    }
+
+    // se usa \r\n para que quede igual al archivo de ejemplo del enunciado
+    static void escribirLinea(String linea) throws IOException {
+        bw.write(linea + "\r\n");
     }
 }
